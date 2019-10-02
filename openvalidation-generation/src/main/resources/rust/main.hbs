@@ -1,0 +1,27 @@
+use huml::HUMLFrameWork as huml;
+
+
+
+
+pub fn {{params.generated_class_name}}() {
+
+    let mut huml = huml::new();
+
+{{#if nullCheckRules}}
+    //pre validation null checks rules
+    {{#nullCheckRules}}        {{tmpl}}
+
+    {{/nullCheckRules}}
+    //++++++++++++++++++++++++++++++++
+{{/if}}
+
+
+}
+
+
+
+{{#elements}}        {{tmpl}}
+
+{{/elements}}
+
+
