@@ -5,6 +5,37 @@
 
 // deny unsafe code
 #![deny(unsafe_code)]
+#![warn(
+    ellipsis_inclusive_range_patterns,
+    trivial_casts,
+    trivial_numeric_casts,
+    unreachable_pub,
+    unused,
+    unused_results,
+    rust_2018_idioms
+)]
+#![warn(
+    clippy::all,
+    clippy::correctness,
+    clippy::perf,
+    clippy::complexity,
+    clippy::style,
+    clippy::pedantic,
+    clippy::shadow_reuse,
+    clippy::shadow_same,
+    clippy::shadow_unrelated,
+    clippy::pub_enum_variant_names,
+    clippy::string_add,
+    clippy::string_add_assign,
+    clippy::redundant_clone,
+    clippy::empty_enum,
+    clippy::explicit_iter_loop,
+    clippy::match_same_arms,
+    clippy::needless_borrow,
+    clippy::needless_continue,
+    clippy::path_buf_push_overwrite,
+)]
+#![allow(clippy::too_many_lines)]
 
 pub struct Model {
     age: u8,
@@ -35,7 +66,7 @@ pub mod huml {
                 .iter()
                 .filter(|rule| rule.toggle == RuleToggle::Enabled)
             {
-                let validation_failed: bool = (rule.function)(&data);
+                let validation_failed: bool = (rule.function)(data);
                 if validation_failed {
                     let val_error = ValidationError {
                         error: rule.error.clone(),
@@ -68,7 +99,7 @@ pub mod huml {
                 name: name.into(),
                 error: error.into(),
                 toggle,
-                fields: fields.into_iter().map(|s| s.into()).collect(),
+                fields: fields.into_iter().map(std::convert::Into::into).collect(),
                 function,
             };
             self.rules.push(rule);
@@ -108,39 +139,39 @@ pub mod huml {
     // https://users.rust-lang.org/t/what-is-the-difference-between-eq-and-partialeq/15751/2
 
     #[allow(non_snake_case)]
-    #[inline(always)]
-    pub fn EQUALS<T: PartialEq>(left_operand: T, right_operand: T) -> bool {
+    #[inline]
+    pub fn EQUALS<T: PartialEq>(left_operand: &T, right_operand: &T) -> bool {
         left_operand == right_operand
     }
 
     #[allow(non_snake_case)]
-    #[inline(always)]
-    pub fn NOT_EQUALS<T: PartialEq>(left_operand: T, right_operand: T) -> bool {
+    #[inline]
+    pub fn NOT_EQUALS<T: PartialEq>(left_operand: &T, right_operand: &T) -> bool {
         !EQUALS(left_operand, right_operand)
     }
 
     // partial ord so these work on floats too
     #[allow(non_snake_case)]
-    #[inline(always)]
-    pub fn LESS_THAN<T: PartialOrd>(left_operand: T, right_operand: T) -> bool {
+    #[inline]
+    pub fn LESS_THAN<T: PartialOrd>(left_operand: &T, right_operand: &T) -> bool {
         left_operand < right_operand
     }
 
     #[allow(non_snake_case)]
-    #[inline(always)]
-    pub fn GREATER_THAN<T: PartialOrd>(left_operand: T, right_operand: T) -> bool {
+    #[inline]
+    pub fn GREATER_THAN<T: PartialOrd>(left_operand: &T, right_operand: &T) -> bool {
         left_operand > right_operand
     }
 
     #[allow(non_snake_case)]
-    #[inline(always)]
-    pub fn LESS_OR_EQUALS<T: PartialOrd>(left_operand: T, right_operand: T) -> bool {
+    #[inline]
+    pub fn LESS_OR_EQUALS<T: PartialOrd>(left_operand: &T, right_operand: &T) -> bool {
         left_operand <= right_operand
     }
 
     #[allow(non_snake_case)]
-    #[inline(always)]
-    pub fn GREATER_OR_EQUALS<T: PartialOrd>(left_operand: T, right_operand: T) -> bool {
+    #[inline]
+    pub fn GREATER_OR_EQUALS<T: PartialOrd>(left_operand: &T, right_operand: &T) -> bool {
         left_operand >= right_operand
     }
 
@@ -191,14 +222,14 @@ pub mod huml {
     // from python: https://github.com/openvalidation/openvalidation/pull/37/files
 
     #[allow(non_snake_case)]
-    #[inline(always)]
-    pub fn EXISTS<T>(item: Option<T>) -> bool {
+    #[inline]
+    pub fn EXISTS<T>(item: &Option<T>) -> bool {
         item.is_some()
     }
 
     #[allow(non_snake_case)]
-    #[inline(always)]
-    pub fn NOT_EXISTS<T>(item: Option<T>) -> bool {
+    #[inline]
+    pub fn NOT_EXISTS<T>(item: &Option<T>) -> bool {
         item.is_none()
     }
 
@@ -212,14 +243,14 @@ pub mod huml {
     }
 
     #[allow(non_snake_case)]
-    #[inline(always)]
-    pub fn EMPTY<T>(vec: Vec<T>) -> bool {
+    #[inline]
+    pub fn EMPTY<T>(vec: &[Vec<T>]) -> bool {
         vec.is_empty()
     }
 
     #[allow(non_snake_case)]
-    #[inline(always)]
-    pub fn NOT_EMPTY<T>(vec: Vec<T>) -> bool {
+    #[inline]
+    pub fn NOT_EMPTY<T>(vec: &[Vec<T>]) -> bool {
         !EMPTY(vec)
     }
 
