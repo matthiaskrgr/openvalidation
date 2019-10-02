@@ -3,262 +3,104 @@
 // it describes the data model that the function contained in a Rule is run on
 // use mock external.rs so that we can build
 
-// deny unsafe code
+// we probably don't want unsafe code in here
 #![deny(unsafe_code)]
 
-
-pub struct MyData {
-    age: u32,
+pub struct Model {
+    age: u8,
     name: String,
 }
 
-/*
-pub struct MyData2 {
-    amount: u8,
-    location: Point,
-}
-
-pub struct Point {
-    x: f32,
-    y: f32,
-}
-
-pub struct MyData3 {
-    amount: u8,
-    location: Point,
-    curve: Vec<Point>,
-}
-
-*/
-
-#[allow(non_snake_case)]
-pub mod HUML {
-    // a function with static lifetime that operates on MyData and returns bool
-    // this will be used to validate the data
-
-    // Die Methode (callable), die zu einer rule gehört gibt true zurück
-    // wenn gemäß dieser Regel ein Fehler vorliegt
-    // und false otherwise
-
-    //pub trait Callable: for<'r> Fn(&'r crate::MyData) -> bool {}
-
-    //  pub trait Callable: Fn(&crate::MyData)-> bool {}
-    #[derive(Default, Clone)]
-    pub struct HUMLFramework<'a> {
-        // list of rules
+pub mod huml {
+    #[derive(Default)]
+    pub struct HumlFrameWork<'a> {
         rules: Vec<ValidationRule<'a>>,
     }
 
-    impl<'a> HUMLFramework<'a> {
+    impl<'a> HumlFrameWork<'a> {
         pub fn new() -> Self {
-            Self { rules: Vec::new() }
+            Self { rules: vec![] }
         }
+    }
 
-        // add a rule to the HUML object
-        pub fn append_rule<T: Fn(&crate::MyData) -> bool>(
-            &'a mut self,
-            name: String, // @TODO use AsRef<str> here
-            fields: Vec<String>,
-            error: String,
-            disabled: bool,
-            function: &'a T,
-            data: &'a crate::MyData,
-        ) {
-            let rule = ValidationRule::new(name, fields, error, disabled, function, data);
-            self.push_rule(rule);
-        }
+    impl<'a> HumlFrameWork<'a> {
+        #[must_use]
+        pub fn validate(&self, data: &crate::Model) -> ValidationSummary {
+            let mut val_errors: Vec<ValidationError> = Vec::new();
+            let mut fields: Vec<String> = Vec::new();
 
-        // takes rule object and pushes it into huml object
-        pub fn push_rule(&'a mut self, rule: ValidationRule<'a>) {
-            self.rules.push(rule);
-        }
-
-        // SILAS:
-        /// Die validate Methode gibt ein Objekt zurück, dass Informationen über alle gefundenen Fehler enthält.
-        /// // Vec<Result<(),ValidationError>>
-        // Methodennamen und -signaturen, sowie Datenstrukturen (z.B. das Rückgabeobjekt der validate Methode) sollen sich in allen Sprachen so exakt wie möglich entsprechen.
-
-        pub fn validate(&mut self) -> ValidationSummary {
-            //- In einem validate-Aufruf wird in einer Schleife die function der
-            //  Regel auf Daten angewendet und gegebenenfalls die
-            //  Fehlernachricht etc. dem Validierungsergebnis hinzugefügt.
-            // gefundener Fehler heißt die function gibt true zurück
-
-            let mut summary = ValidationSummary::new();
-
-            for rule in self.enabled_rules().iter() {
-                // apply the rule to the data
-                if rule.validate() {
-                    // gefundener fehler heißt die funktion gibt true zurück
-
-                    let error = rule.errormsg.clone();
-                    let fields = rule.fields.clone();
-                    let val_error = ValidationError::new(error, fields);
-                    // add both of them to the summary
-                    summary.push(Err(val_error));
-                } else {
-                    // do  nothing
+            for rule in self
+                .rules
+                .iter()
+                .filter(|rule| rule.toggle == RuleToggle::Enabled)
+            {
+                let validation_failed: bool = (rule.function)(&data);
+                if validation_failed {
+                    let val_error = ValidationError {
+                        error: rule.error.clone(),
+                        fields: rule.fields.clone(),
+                    };
+                    fields.extend(rule.fields.clone());
+                    val_errors.push(val_error);
                 }
             }
 
+            let mut summary = ValidationSummary {
+                has_errors: !val_errors.is_empty(),
+                errors: val_errors,
+                fields,
+            };
+            summary.fields.sort();
+            summary.fields.dedup();
             summary
         }
 
-        pub fn get_rule_by_name(&'a self, name: String) -> Option<&'a ValidationRule> {
-            // do we need to verify that rule name are uniqe?
-            // should we return a list of rules with matching name?
-            self.rules.iter().find(|rule| rule.name == name)
-        }
-
-        // returns a reference to the contained rules
-        pub fn rules(&'a self) -> &'a Vec<ValidationRule<'a>> {
-            &self.rules
-        }
-
-        // returns a list of only enabled rules
-        pub fn enabled_rules(&'a self) -> Vec<&'a ValidationRule<'a>> {
-            self.rules()
-                .iter()
-                .filter(|rule| !rule.disabled)
-                .collect::<Vec<_>>()
-        }
-    } // impl HumlFrameWork
-
-    // a validation rule
-    #[derive(Clone)]
-    pub struct ValidationRule<'a> {
-        // most of the fields contain rule metadata
-        name: String,
-        // json keys
-        fields: Vec<String>,
-        // error returned in case the rule does not validate
-        errormsg: String,
-        // rules might be disabled
-        disabled: bool,
-        // a function t
-        // hat is run
-        function: &'a dyn Fn(&crate::MyData) -> bool,
-        // the data that the rule is checked against
-        data: &'a crate::MyData,
-    }
-
-    impl<'a> ValidationRule<'a> {
-        pub fn new<T: Fn(&crate::MyData) -> bool>(
-            name: String,
-            fields: Vec<String>,
-            errormsg: String,
-            disabled: bool,
-            function: &'a T,
-            data: &'a crate::MyData,
-        ) -> Self {
-            Self {
-                name,
-                fields,
-                errormsg,
-                disabled,
+        pub fn append_rule<T: Into<String>>(
+            &mut self,
+            name: T,
+            error: T,
+            toggle: RuleToggle,
+            fields: Vec<T>,
+            function: &'a dyn Fn(&crate::Model) -> bool,
+        ) {
+            let rule = ValidationRule {
+                name: name.into(),
+                error: error.into(),
+                toggle,
+                fields: fields.into_iter().map(|s| s.into()).collect(),
                 function,
-                data,
-            }
-        }
-
-        pub fn name(&self) -> String {
-            self.name.clone()
-        }
-
-        pub fn fields(&self) -> Vec<String> {
-            self.fields.clone()
-        }
-
-        pub fn errormsg(&self) -> String {
-            self.errormsg.clone()
-        }
-
-        pub fn is_disabled(&self) -> bool {
-            self.disabled
-        }
-
-        pub fn data(&self) -> &crate::MyData {
-            // we don't neccessarily know if the data impls Clone so borrow it
-            &self.data
-        }
-
-        // hmm
-        pub fn function(&self) -> &dyn Fn(&crate::MyData) -> bool {
-            self.function
-        }
-
-        pub fn validate(&self) -> bool {
-            self.function()(&self.data)
-        }
-    } // impl ValidationRule
-
-    #[derive(Debug, Clone, PartialEq, Eq, Default)]
-    pub struct ValidationResult {
-        errors: Option<Vec<ValidationError>>,
-        fields: Vec<String>,
-    }
-
-    impl ValidationResult {
-        pub fn new(errors: Vec<ValidationError>, fields: Vec<String>) -> Self {
-            Self {
-                errors: Some(errors),
-                fields,
-            }
-        }
-
-        // add a single item
-        pub fn append(&mut self, error: ValidationError, field: String) {
-            match &mut self.errors {
-                Some(v) => v.push(error),
-                None => self.errors = Some(vec![error]),
-            }
-
-            self.fields.push(field);
-        }
-
-        // extend self by a vector of item
-        pub fn extend(&mut self, errors: Vec<ValidationError>, fields: Vec<String>) {
-            match &mut self.errors {
-                Some(v) => v.extend(errors),
-                None => self.errors = Some(errors),
-            }
-
-            self.fields.extend(fields);
+            };
+            self.rules.push(rule);
         }
     }
-
-    // the result of a validation
-    #[derive(Debug, Clone, PartialEq, Eq, Default)]
-    pub struct ValidationError {
+    /// expresses if a rule is enabled or disabe
+    #[derive(PartialEq, Clone, Debug)]
+    pub enum RuleToggle {
+        Enabled,
+        Disabled,
+    }
+    struct ValidationRule<'a> {
+        name: String,
         error: String,
+        toggle: RuleToggle,
         fields: Vec<String>,
+        function: &'a dyn Fn(&crate::Model) -> bool,
     }
 
-    impl ValidationError {
-        pub fn new(error: String, fields: Vec<String>) -> Self {
-            Self { error, fields }
-        }
-
-        pub fn fields(&self) -> Vec<String> {
-            self.fields.clone()
-        }
-
-        pub fn error(&self) -> String {
-            self.error.clone()
-        }
+    #[derive(Debug)]
+    pub struct ValidationSummary {
+        pub has_errors: bool,
+        pub errors: Vec<ValidationError>,
+        pub fields: Vec<String>,
     }
 
-    // by using the newtype pattern we auto-inherit all vec methods, yay
-    type ValidationSummary = Vec<Result<(), ValidationError>>;
-
-    pub fn get_errors(summary: &ValidationSummary) -> Vec<ValidationError> {
-        summary
-            .iter()
-            .cloned()
-            .filter(|result| result.is_err())
-            .map(|r| r.unwrap_err())
-            .collect()
+    #[derive(Debug, Eq, PartialEq)]
+    pub struct ValidationError {
+        pub error: String,
+        pub fields: Vec<String>,
     }
+
+
 
     // a (in?)complete list of operators can be found here:
     // https://github.com/openvalidation/openvalidation/blob/09ae4e62c9e7d9efae89a307a7dd68f2db252649/openvalidation-common/src/main/java/io/openvalidation/common/ast/ASTComparisonOperator.java#L19
@@ -350,6 +192,7 @@ pub mod HUML {
         item.is_none()
     }
 
+    #[allow(non_snake_case)]
     pub fn SUM_OF<T>(iterable: T) -> T::Item
     where
         T: IntoIterator,
@@ -398,6 +241,406 @@ pub mod HUML {
             .collect::<Vec<T::Item>>() // and return as Vec
     }
 
+
+
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn huml_empty() {
+        let model = crate::Model {
+            age: 17,
+            name: "Hans".into(),
+        };
+
+        let huml = huml::HumlFrameWork::new();
+
+        let res = huml.validate(&model);
+
+        assert!(!res.has_errors);
+        assert!(res.fields.is_empty());
+        assert!(res.errors.is_empty());
+    }
+
+    #[test]
+    fn huml_no_error() {
+        // all validation rules conform to the data
+        let model = crate::Model {
+            age: 18,
+            name: "Hans".into(),
+        };
+
+        let mut huml = huml::HumlFrameWork::new();
+        huml.append_rule(
+            "age check",
+            "person is 18",
+            huml::RuleToggle::Enabled,
+            vec!["field1"],
+            &|model: &crate::Model| model.age != 18,
+        );
+
+        let res = huml.validate(&model);
+
+        assert!(!res.has_errors);
+        assert!(res.fields.is_empty());
+        assert!(res.errors.is_empty());
+    }
+
+    #[test]
+    fn huml_error() {
+        let model = crate::Model {
+            age: 18,
+            name: "Hans".into(),
+        };
+
+        let mut huml = huml::HumlFrameWork::new();
+        huml.append_rule(
+            "age check",
+            "person is 18",
+            huml::RuleToggle::Enabled,
+            vec!["field1"],
+            &|model: &crate::Model| model.age == 18,
+        );
+
+        let res = huml.validate(&model);
+
+        assert!(res.has_errors);
+        assert_eq!(res.fields, vec!["field1"]);
+        assert_eq!(
+            res.errors,
+            vec![huml::ValidationError {
+                error: "person is 18".into(),
+                fields: vec!["field1".to_string()],
+            }]
+        );
+    }
+
+    #[test]
+    fn huml() {
+        let model = crate::Model {
+            age: 17,
+            name: "Hans".into(),
+        };
+
+        let mut huml = huml::HumlFrameWork::new();
+        huml.append_rule(
+            "rule1",
+            "is not old enough!",
+            huml::RuleToggle::Enabled,
+            vec![],
+            &|model: &crate::Model| model.age < 18,
+        );
+
+        huml.append_rule(
+            "rule2",
+            "is not named Hans!",
+            huml::RuleToggle::Enabled,
+            vec![],
+            &|model: &crate::Model| model.name != "Hans",
+        );
+
+        let res = huml.validate(&model);
+
+        println!("{:?}", res);
+    }
+
+    #[test]
+    fn huml_misc() {
+        let model_1 = crate::Model {
+            age: 100,
+            name: "Luigi".into(),
+        };
+
+        let model_2 = crate::Model {
+            age: 200,
+            name: "Mario".into(),
+        };
+
+        let mut huml = huml::HumlFrameWork::new();
+
+        huml.append_rule(
+            "luigi age",
+            "is not old enough!",
+            huml::RuleToggle::Enabled,
+            vec![],
+            &|model_1: &crate::Model| model_1.age < 18 && model_1.name != "Luigi",
+        );
+
+        huml.append_rule(
+            "mario age",
+            "is not named Hans!",
+            huml::RuleToggle::Enabled,
+            vec![],
+            &|model_2: &crate::Model| model_2.name != "Mario" && model_2.age != 200,
+        );
+
+        let res = huml.validate(&model_1);
+
+        println!("{:?}", res);
+    }
+}
+
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+/*
+#[allow(non_snake_case)]
+pub mod _HUML {
+    // a function with static lifetime that operates on MyData and returns bool
+    // this will be used to validate the data
+
+    // Die Methode (callable), die zu einer rule gehört gibt true zurück
+    // wenn gemäß dieser Regel ein Fehler vorliegt
+    // und false otherwise
+
+    //pub trait Callable: for<'r> Fn(&'r crate::MyData) -> bool {}
+
+    #[derive(Default, Clone, Debug)]
+    pub struct HUMLFramework<'a> {
+        // list of rules
+        rules: Vec<ValidationRule<'a>>,
+    }
+
+    impl<'a> HUMLFramework<'a> {
+        pub fn new() -> Self {
+            Self { rules: Vec::new() }
+        }
+
+        // add a rule to the HUML object
+        pub fn append_rule<T: Fn(&crate::MyData) -> bool>(
+            &mut self,
+            name: String, // @TODO use AsRef<str> here
+            fields: Vec<String>,
+            error: String,
+            disabled: bool,
+            function: &'a T,
+            data: &'a crate::MyData,
+        ) {
+            let rule = ValidationRule::new(name, fields, error, disabled, function, data);
+            self.push_rule(rule);
+        }
+
+        // takes rule object and pushes it into huml object, consuming the rule
+        pub fn push_rule(&mut self, rule: ValidationRule<'a>) {
+            self.rules.push(rule);
+        }
+
+        // returns a list of only enabled rules
+        pub fn enabled_rules(&'a self) -> Vec<&'a ValidationRule<'a>> {
+            self.rules()
+                .iter()
+                .filter(|rule| rule.is_enabled())
+                .collect::<Vec<&ValidationRule>>()
+        }
+
+        // SILAS:
+        /// Die validate Methode gibt ein Objekt zurück, dass Informationen über alle gefundenen Fehler enthält.
+        /// // Vec<Result<(),ValidationError>>
+        // Methodennamen und -signaturen, sowie Datenstrukturen (z.B. das Rückgabeobjekt der validate Methode) sollen sich in allen Sprachen so exakt wie möglich entsprechen.
+
+        #[must_use]
+        pub fn validate(&mut self) -> ValidationSummary {
+            //- In einem validate-Aufruf wird in einer Schleife die function der
+            //  Regel auf Daten angewendet und gegebenenfalls die
+            //  Fehlernachricht etc. dem Validierungsergebnis hinzugefügt.
+            // gefundener Fehler heißt die function gibt true zurück
+
+            let mut summary = ValidationSummary {
+                errors: vec![],
+                fields: vec![],
+                has_errors: false,
+            };
+
+            for rule in self.enabled_rules().iter() {
+                // apply the rule to the data
+                if rule.validate() {
+                    // gefundener fehler heißt die funktion gibt true zurück
+
+                    let error = rule.errormsg.clone();
+                    let fields = rule.fields.clone();
+                    let val_error = ValidationError::new(error, fields.clone());
+                    // add both of them to the summary
+                    summary.errors.push(val_error);
+                    summary.fields.extend(fields);
+                } else {
+                    // do  nothing
+                }
+            }
+            summary.has_errors = !summary.errors.is_empty();
+            // dedupe fields of the summary
+            summary.fields.sort();
+            summary.fields.dedup();
+            summary
+        }
+
+        pub fn get_rule_by_name(&'a self, name: String) -> Option<&'a ValidationRule> {
+            // do we need to verify that rule name are uniqe?
+            // should we return a list of rules with matching name?
+            self.rules.iter().find(|rule| rule.name == name)
+        }
+
+        // returns a reference to the contained rules
+        pub fn rules(&'a self) -> &'a Vec<ValidationRule<'a>> {
+            &self.rules
+        }
+    } // impl HumlFrameWork
+
+    // a validation rule
+    #[derive(Clone)]
+    pub struct ValidationRule<'a> {
+        // most of the fields contain rule metadata
+        name: String,
+        // json keys
+        fields: Vec<String>,
+        // error returned in case the rule does not validate
+        errormsg: String,
+        // rules might be disabled
+        disabled: bool,
+        // a function that is run
+        function: &'a dyn Fn(&crate::MyData) -> bool,
+        // the data that the rule is checked against
+        data: &'a crate::MyData,
+    }
+
+    // we can't derive(Debug) because closures don't impl it
+    // so do it manually
+    impl<'a> std::fmt::Debug for ValidationRule<'a> {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            #[allow(clippy::write_literal)]
+            write!(f, "ValidationRule {{ name: {:?}, fields: {:?}, errormsg: {:?}, disabled: {:?}, function: {}, data: {} }}", self.name, self.fields, self.errormsg, self.disabled, "(omitted):&'a dyn Fn(&crate::MyData) -> bool", "(omitted)&'a crate::MyData")
+        }
+    }
+
+    impl<'a> ValidationRule<'a> {
+        pub fn new<T: Fn(&crate::MyData) -> bool>(
+            name: String,
+            fields: Vec<String>,
+            errormsg: String,
+            disabled: bool,
+            function: &'a T,
+            data: &'a crate::MyData,
+        ) -> Self {
+            Self {
+                name,
+                fields,
+                errormsg,
+                disabled,
+                function,
+                data,
+            }
+        }
+
+        pub fn name(&self) -> String {
+            self.name.clone()
+        }
+
+        pub fn fields(&self) -> Vec<String> {
+            self.fields.clone()
+        }
+
+        pub fn errormsg(&self) -> String {
+            self.errormsg.clone()
+        }
+
+        pub fn is_disabled(&self) -> bool {
+            self.disabled
+        }
+
+        pub fn is_enabled(&self) -> bool {
+            !self.is_disabled()
+        }
+
+        pub fn data(&self) -> &crate::MyData {
+            // we don't neccessarily know if the data impls Clone so borrow it
+            &self.data
+        }
+
+        // return the closure by reference. Do we want something else here?
+        pub fn function(&self) -> &dyn Fn(&crate::MyData) -> bool {
+            self.function
+        }
+
+        // run the function of a rule against its data
+        pub fn validate(&self) -> bool {
+            self.function()(&self.data)
+        }
+    } // impl ValidationRule
+
+    #[derive(Debug, Clone, Default)]
+    pub struct ValidationSummary {
+        errors: Vec<ValidationError>, // not deduped
+        fields: Vec<String>,          // deduped
+        has_errors: bool,
+    }
+
+    // the result of a validation
+    #[derive(Debug, Clone, PartialEq, Eq, Default)]
+    pub struct ValidationError {
+        error: String,
+        fields: Vec<String>,
+    }
+
+    impl ValidationError {
+        pub fn new(error: String, fields: Vec<String>) -> Self {
+            Self { error, fields }
+        }
+
+        pub fn fields(&self) -> Vec<String> {
+            self.fields.clone()
+        }
+
+        pub fn error(&self) -> String {
+            self.error.clone()
+        }
+    }
+
+    /*
+        pub struct ValidationSummary {
+            errors: Vec<ValidationError>,
+            fields: Vec<String>,
+            has_errors: bool,
+        }
+
+        // by using the newtype pattern we auto-inherit all vec methods, yay
+        type ValidationSummary = Vec<Result<(), ValidationError>>;
+
+        pub fn get_errors(summary: &ValidationSummary) -> Vec<ValidationError> {
+            summary
+                .iter()
+                .cloned()
+                .filter(|result| result.is_err())
+                .map(|r| r.unwrap_err())
+                .collect()
+        }
+
+
+    */
+
+
     #[cfg(test)]
     mod tests {
         use super::*;
@@ -418,25 +661,39 @@ pub mod HUML {
                 vec![String::from("field 1")],
                 String::from("person is not old enough!"),
                 false,
-                &|x: &crate::MyData| x.age > 18 && x.name == "Hans",
+                &|x: &crate::MyData| x.age == 17,
                 &schema,
             );
 
             huml.push_rule(rule);
-            /*
+
             let rule_2 = ValidationRule::new(
                 String::from("rule1"),
                 vec![String::from("field 1")],
-                String::from("person is not old enough!"),
+                String::from("BAD"),
                 false,
-                &|x: &crate::MyData| x.age < 7 && x.name == "Franz",
+                &|x: &crate::MyData| x.name == "Hans",
                 &schema,
             );
 
             huml.push_rule(rule_2);
 
-            */
-            // @TODO  Cannot borrow 'huml' as mutable more than once at a time!!!
+            // a rule that does not validate successfully
+            let rule_3_false = ValidationRule::new(
+                String::from("rule1"),
+                vec![String::from("field 1")],
+                String::from("person is not old enough!"),
+                false,
+                // is this   true/false correct v  ?
+                &|x: &crate::MyData| x.age != 1,
+                &schema,
+            );
+
+            huml.push_rule(rule_3_false);
+
+            let result = huml.validate();
+            println!("huml debug: {:?}", huml); // it works, yay!
+            println!("\n\nresult: {:?}", result); // it works, yay!
         }
 
         #[test]
@@ -698,3 +955,5 @@ pub mod HUML {
         }
     }
 }
+
+*/
