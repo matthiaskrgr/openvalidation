@@ -531,7 +531,7 @@ pub mod _HUML {
     impl<'a> std::fmt::Debug for ValidationRule<'a> {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             #[allow(clippy::write_literal)]
-            write!(f, "ValidationRule {{ name: {:?}, fields: {:?}, errormsg: {:?}, disabled: {:?}, function: {}, data: {} }}", self.name, self.fields, self.errormsg, self.disabled, "(omitted):&'a dyn Fn(&crate::MyData) -> bool", "(omitted)&'a crate::MyData")
+            write!(f, "ValidationRule ...", self.name, self.fields, self.errormsg, self.disabled, "(omitted):&'a dyn Fn(&crate::MyData) -> bool", "(omitted)&'a crate::MyData")
         }
     }
 
