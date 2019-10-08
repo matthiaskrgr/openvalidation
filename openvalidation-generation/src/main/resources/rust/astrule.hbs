@@ -2,7 +2,7 @@ self.append_rule(
             "{{name}}",
             [{{tmpl "relatedfields"}}],
             {{tmpl "action"}},
-            &<{{#if allParentProperties}}(({{#allParentProperties}}{{tmpl "precondition"}}{{#unless @last}} and {{/unless}}{{/allParentProperties}}) and ({{/if}}{{#condition}}{{tmpl}}{{/condition}}{{#if allParentProperties}})){{/if}},
+            &{{#if allParentProperties}}(({{#allParentProperties}}{{tmpl "precondition"}}{{#unless @last}} and {{/unless}}{{/allParentProperties}}) and ({{/if}}{{#condition}}{{tmpl}}{{/condition}}{{#if allParentProperties}})){{/if}},
             
             {{!  closure goes here? }}
             {{! &|model: &crate::Model| model.age != 18, }}

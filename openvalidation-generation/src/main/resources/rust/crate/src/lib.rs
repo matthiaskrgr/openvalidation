@@ -33,7 +33,7 @@
     clippy::match_same_arms,
     clippy::needless_borrow,
     clippy::needless_continue,
-    clippy::path_buf_push_overwrite,
+    clippy::path_buf_push_overwrite
 )]
 #![allow(clippy::too_many_lines)]
 
@@ -44,7 +44,7 @@ pub struct Model {
 
 pub mod huml {
 
-    #[derive(Default)]
+    #[derive(Default, Debug)]
     pub struct HumlFrameWork<'a> {
         rules: Vec<ValidationRule<'a>>,
     }
@@ -111,12 +111,23 @@ pub mod huml {
         Enabled,
         Disabled,
     }
+
     struct ValidationRule<'a> {
         name: String,
         error: String,
         toggle: RuleToggle,
         fields: Vec<String>,
         function: &'a dyn Fn(&crate::Model) -> bool,
+    }
+
+    impl<'a> std::fmt::Debug for ValidationRule<'a> {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            //{{{{raw-helper}}}}
+            // ^ make sure handlebars does not choke on "ValidationRule {{ ... }}"
+            #[allow(clippy::write_literal)]
+            write!(f, "ValidationRule {{ name: {:?}, fields: {:?}, errormsg: {:?}, disabled: {:?}, function: {}, data: {} }}", self.name, self.fields, self.error, self.toggle, "(omitted):&'a dyn Fn(&crate::MyData) -> bool", "(omitted)&'a crate::MyData")
+            //{{{{/raw-helper}}}}
+        }
     }
 
     #[derive(Debug)]
