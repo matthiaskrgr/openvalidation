@@ -33,7 +33,7 @@
     clippy::match_same_arms,
     clippy::needless_borrow,
     clippy::needless_continue,
-    clippy::path_buf_push_overwrite,
+    clippy::path_buf_push_overwrite
 )]
 #![allow(clippy::too_many_lines)]
 
@@ -44,7 +44,7 @@ pub struct Model {
 
 pub mod huml {
 
-    #[derive(Default)]
+    #[derive(Default, Debug)]
     pub struct HumlFrameWork<'a> {
         rules: Vec<ValidationRule<'a>>,
     }
@@ -111,12 +111,23 @@ pub mod huml {
         Enabled,
         Disabled,
     }
+
     struct ValidationRule<'a> {
         name: String,
         error: String,
         toggle: RuleToggle,
         fields: Vec<String>,
         function: &'a dyn Fn(&crate::Model) -> bool,
+    }
+
+    impl<'a> std::fmt::Debug for ValidationRule<'a> {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            //{{{{raw-helper}}}}
+            // ^ make sure handlebars does not choke on "ValidationRule {{ ... }}"
+            #[allow(clippy::write_literal)]
+            write!(f, "ValidationRule {{ name: {:?}, fields: {:?}, errormsg: {:?}, disabled: {:?}, function: {}, data: {} }}", self.name, self.fields, self.error, self.toggle, "(omitted):&'a dyn Fn(&crate::MyData) -> bool", "(omitted)&'a crate::MyData")
+            //{{{{/raw-helper}}}}
+        }
     }
 
     #[derive(Debug)]
@@ -295,3 +306,140 @@ pub mod huml {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn huml_empty() {
+        let model = crate::Model {
+            age: 17,
+            name: "Hans".into(),
+        };
+
+        let huml = huml::HumlFrameWork::new();
+
+        let res = huml.validate(&model);
+
+        assert!(!res.has_errors);
+        assert!(res.fields.is_empty());
+        assert!(res.errors.is_empty());
+    }
+
+    #[test]
+    fn huml_no_error() {
+        // all validation rules conform to the data
+        let model = crate::Model {
+            age: 18,
+            name: "Hans".into(),
+        };
+
+        let mut huml = huml::HumlFrameWork::new();
+        huml.append_rule(
+            "age check",
+            "person is 18",
+            huml::RuleToggle::Enabled,
+            vec!["field1"],
+            &|model: &crate::Model| model.age != 18,
+        );
+
+        let res = huml.validate(&model);
+
+        assert!(!res.has_errors);
+        assert!(res.fields.is_empty());
+        assert!(res.errors.is_empty());
+    }
+
+    #[test]
+    fn huml_error() {
+        let model = crate::Model {
+            age: 18,
+            name: "Hans".into(),
+        };
+
+        let mut huml = huml::HumlFrameWork::new();
+        huml.append_rule(
+            "age check",
+            "person is 18",
+            huml::RuleToggle::Enabled,
+            vec!["field1"],
+            &|model: &crate::Model| model.age == 18,
+        );
+
+        let res = huml.validate(&model);
+
+        assert!(res.has_errors);
+        assert_eq!(res.fields, vec!["field1"]);
+        assert_eq!(
+            res.errors,
+            vec![huml::ValidationError {
+                error: "person is 18".into(),
+                fields: vec!["field1".to_string()],
+            }]
+        );
+    }
+
+    #[test]
+    fn huml() {
+        let model = crate::Model {
+            age: 17,
+            name: "Hans".into(),
+        };
+
+        let mut huml = huml::HumlFrameWork::new();
+        huml.append_rule(
+            "rule1",
+            "is not old enough!",
+            huml::RuleToggle::Enabled,
+            vec![],
+            &|model: &crate::Model| model.age < 18,
+        );
+
+        huml.append_rule(
+            "rule2",
+            "is not named Hans!",
+            huml::RuleToggle::Enabled,
+            vec![],
+            &|model: &crate::Model| model.name != "Hans",
+        );
+
+        let res = huml.validate(&model);
+
+        println!("{:?}", res);
+    }
+
+    #[test]
+    fn huml_misc() {
+        let model_1 = crate::Model {
+            age: 100,
+            name: "Luigi".into(),
+        };
+
+        let model_2 = crate::Model {
+            age: 200,
+            name: "Mario".into(),
+        };
+
+        let mut huml = huml::HumlFrameWork::new();
+
+        huml.append_rule(
+            "luigi age",
+            "is not old enough!",
+            huml::RuleToggle::Enabled,
+            vec![],
+            &|model_1: &crate::Model| model_1.age < 18 && model_1.name != "Luigi",
+        );
+
+        huml.append_rule(
+            "mario age",
+            "is not named Hans!",
+            huml::RuleToggle::Enabled,
+            vec![],
+            &|model_2: &crate::Model| model_2.name != "Mario" && model_2.age != 200,
+        );
+
+        let res = huml.validate(&model_1);
+
+        println!("{:?}", res);
+    }
+}
