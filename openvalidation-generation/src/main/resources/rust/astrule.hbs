@@ -1,12 +1,9 @@
-self.append_rule(
-            "{{name}}",
-            [{{tmpl "relatedfields"}}],
-            {{tmpl "action"}},
-            &{{#if allParentProperties}}(({{#allParentProperties}}{{tmpl "precondition"}}{{#unless @last}} and {{/unless}}{{/allParentProperties}}) and ({{/if}}{{#condition}}{{tmpl}}{{/condition}}{{#if allParentProperties}})){{/if}},
-            
-            {{!  closure goes here? }}
-            {{! &|model: &crate::Model| model.age != 18, }}
-            
-            
-            huml::RuleToggle::Enabled,
-        )
+
+    huml.append_rule(
+        "{{name}}",
+        [{{tmpl "relatedfields"}}],
+        {{tmpl "action"}},
+        &{{#if allParentProperties}}(({{#allParentProperties}}{{tmpl "precondition"}}{{#unless @last}} and {{/unless}}{{/allParentProperties}}) and {{/if}}{{#condition}}{{tmpl}}{{/condition}}{{#if allParentProperties}})){{/if}},
+        huml::RuleToggle::Enabled
+    );
+}

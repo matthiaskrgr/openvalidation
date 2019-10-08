@@ -122,11 +122,8 @@ pub mod huml {
 
     impl<'a> std::fmt::Debug for ValidationRule<'a> {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            //{{{{raw-helper}}}}
-            // ^ make sure handlebars does not choke on "ValidationRule {{ ... }}"
             #[allow(clippy::write_literal)]
-            write!(f, "ValidationRule {{ name: {:?}, fields: {:?}, errormsg: {:?}, disabled: {:?}, function: {}, data: {} }}", self.name, self.fields, self.error, self.toggle, "(omitted):&'a dyn Fn(&crate::MyData) -> bool", "(omitted)&'a crate::MyData")
-            //{{{{/raw-helper}}}}
+            write!(f, "ValidationRule { name: {:?}, fields: {:?}, errormsg: {:?}, disabled: {:?}, function: {}, data: {} }", self.name, self.fields, self.error, self.toggle, "(omitted):&'a dyn Fn(&crate::MyData) -> bool", "(omitted)&'a crate::MyData")
         }
     }
 
