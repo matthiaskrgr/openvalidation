@@ -3,7 +3,7 @@
         "{{name}}",
         [{{tmpl "relatedfields"}}],
         {{tmpl "action"}},
-        &{{#if allParentProperties}}(({{#allParentProperties}}{{tmpl "precondition"}}{{#unless @last}} and {{/unless}}{{/allParentProperties}}) and {{/if}}{{#condition}}{{tmpl}}{{/condition}}{{#if allParentProperties}})){{/if}},
+        & 1 {{#if allParentProperties}} 2 (({{#allParentProperties}} 3 {{tmpl "precondition"}} 4 {{#unless @last}} 5 and {{/unless}} 6 {{/allParentProperties}}) 7 and {{/if}} 8 {{#condition}} 9 {{tmpl}} 10 {{/condition}} 11 {{#if allParentProperties}}12 )){{/if}} 13,
         huml::RuleToggle::Enabled
     );
 }
