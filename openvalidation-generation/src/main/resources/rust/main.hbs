@@ -1,10 +1,8 @@
-mod framework.rs
-
 use huml::HUMLFrameWork as huml;
 
 pub fn {{params.generated_class_name}}() {
 
-    let mut huml = huml::new();
+    let mut huml = huml::HUMLFrameWork::new();
 
 
 {{#elements}}        {{tmpl}}
